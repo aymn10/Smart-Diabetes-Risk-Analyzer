@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}New Assessment — DiaSense AI{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <h1>Diabetes Risk Assessment</h1>
+    <p>Your profile data is pre-filled where available. Height &amp; weight auto-calculate BMI.</p>
+    {% if profile.profile_completion < 100 %}
+    <a href="{{ url_for('profile') }}" class="profile-nudge">Complete your profile ({{ profile.profile_completion }}%) for faster assessments →</a>
+    {% endif %}
+</header>
+
+<form method="post" action="{{ url_for('assess') }}" class="assessment-form" id="assessForm">
+    <section class="card">
+        <h2>Your Body Metrics</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender">
+                    <option value="">Select</option>
+                    <option value="male" {% if profile.gender == 'male' %}selected{% endif %}>Male</option>
+                    <option value="female" {% if profile.gender == 'female' %}selected{% endif %}>Female</option>
+                    <option value="other" {% if profile.gender == 'other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="height_cm">Height (cm) *</label>
+                <input type="number" id="height_cm" name="height_cm" min="50" max="250" step="0.1"
+                       value="{{ profile.height_cm or '' }}" placeholder="170" required>
+                <small>From profile or enter manually</small>
+            </div>
+            <div class="form-group">
+                <label for="weight_kg">Weight (kg) *</label>
+                <input type="number" id="weight_kg" name="weight_kg" min="20" max="300" step="0.1"
+                       value="{{ profile.weight_kg or '' }}" placeholder="72" required>
+            </div>
+            <div class="form-group">
+                <label for="bmi">BMI (auto-calculated) *</label>
+                <input type="number" id="bmi" name="bmi" min="10" max="60" step="0.1"
+                       value="{{ profile.bmi or '' }}" readonly class="input-readonly" required>
+                <small>Calculated from height &amp; weight — most people don't know their BMI</small>
+                <button type="button" class="guide-toggle" data-guide="bmi">How does BMI work?</button>
+            </div>
+            <div class="form-group">
+                <label for="age">Age (years) *</label>
+                <input type="number" id="age" name="age" min="1" max="120" step="1"
+                       value="{{ profile.age or '' }}" placeholder="45" required>
+                <small>{% if profile.age %}Auto-filled from your DOB{% else %}Add DOB in <a href="{{ url_for('profile') }}">Profile</a> or enter manually{% endif %}</small>
+            </div>
+        </div>
+        <div class="guide-panel" id="guide-bmi" hidden>
+            <h4>{{ guides.bmi.title }}</h4>
+            <ul>{% for step in guides.bmi.steps %}<li>{{ step }}</li>{% endfor %}</ul>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Core Health Factors <span class="required-note">* Required</span></h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="glucose">Blood Glucose (mg/dL) *</label>
+                <input type="number" id="glucose" name="glucose" min="50" max="500" step="0.1" required placeholder="120">
+                <small>Fasting glucose; normal &lt;100, prediabetes 100–125</small>
+                <button type="button" class="guide-toggle" data-guide="glucose">Don't have this? How to get it</button>
+            </div>
+            <div class="form-group">
+                <label for="blood_pressure">Blood Pressure — Systolic (mmHg) *</label>
+                <input type="number" id="blood_pressure" name="blood_pressure" min="70" max="250" step="1" required placeholder="130">
+                <small>Normal &lt;120, elevated 120–129</small>
+                <button type="button" class="guide-toggle" data-guide="blood_pressure">Don't have this? How to get it</button>
+            </div>
+        </div>
+        <div class="guide-panel" id="guide-glucose" hidden>
+            <h4>{{ guides.glucose.title }}</h4>
+            <ul>{% for step in guides.glucose.steps %}<li>{{ step }}</li>{% endfor %}</ul>
+        </div>
+        <div class="guide-panel" id="guide-blood_pressure" hidden>
+            <h4>{{ guides.blood_pressure.title }}</h4>
+            <ul>{% for step in guides.blood_pressure.steps %}<li>{{ step }}</li>{% endfor %}</ul>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Additional Factors <span class="optional-note">Optional — improves accuracy</span></h2>
+        <div class="form-grid">
+            <div class="form-group pregnancies-field" id="pregnanciesGroup" {% if profile.gender == 'male' %}hidden{% endif %}>
+                <label for="pregnancies">Pregnancies</label>
+                <input type="number" id="pregnancies" name="pregnancies" min="0" max="20" step="1" placeholder="0">
+                <small>Relevant for gestational diabetes history (women only)</small>
+                <button type="button" class="guide-toggle" data-guide="pregnancies">Learn more</button>
+            </div>
+            <div class="form-group">
+                <label for="insulin">Insulin Level (μU/mL)</label>
+                <input type="number" id="insulin" name="insulin" min="0" max="900" step="0.1" placeholder="80">
+                <small>Serum insulin; normal 2–25 μU/mL</small>
+                <button type="button" class="guide-toggle" data-guide="insulin">Don't have this? How to get it</button>
+            </div>
+            <div class="form-group">
+                <label for="skin_thickness">Skin Fold Thickness (mm)</label>
+                <input type="number" id="skin_thickness" name="skin_thickness" min="0" max="100" step="0.1" placeholder="23">
+                <small>Triceps skin fold measurement</small>
+                <button type="button" class="guide-toggle" data-guide="skin_thickness">Don't have this? How to get it</button>
+            </div>
+            <div class="form-group">
+                <label for="diabetes_pedigree">Diabetes Pedigree Function</label>
+                <input type="number" id="diabetes_pedigree" name="diabetes_pedigree" min="0" max="2.5" step="0.001" placeholder="0.627">
+                <small>Family history score (0.0–2.5)</small>
+                <button type="button" class="guide-toggle" data-guide="diabetes_pedigree">How to estimate this</button>
+            </div>
+        </div>
+        <div class="guide-panel" id="guide-pregnancies" hidden>
+            <h4>{{ guides.pregnancies.title }}</h4>
+            <ul>{% for step in guides.pregnancies.steps %}<li>{{ step }}</li>{% endfor %}</ul>
+        </div>
+        <div class="guide-panel" id="guide-insulin" hidden>
+            <h4>{{ guides.insulin.title }}</h4>
+            <ul>{% for step in guides.insulin.steps %}<li>{{ step }}</li>{% endfor %}</ul>
+        </div>
+        <div class="guide-panel" id="guide-skin_thickness" hidden>
+            <h4>{{ guides.skin_thickness.title }}</h4>
+            <ul>{% for step in guides.skin_thickness.steps %}<li>{{ step }}</li>{% endfor %}</ul>
+        </div>
+        <div class="guide-panel" id="guide-diabetes_pedigree" hidden>
+            <h4>{{ guides.diabetes_pedigree.title }}</h4>
+            <ul>{% for step in guides.diabetes_pedigree.steps %}<li>{{ step }}</li>{% endfor %}</ul>
+        </div>
+    </section>
+
+    <section class="card form-actions-card">
+        <label class="checkbox-label">
+            <input type="checkbox" name="save_report" checked>
+            <span>Save report to your account</span>
+        </label>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg">Generate Risk Report</button>
+        </div>
+    </section>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/assess.js') }}"></script>
+{% endblock %}
