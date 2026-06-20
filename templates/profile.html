@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}My Profile — DiaSense AI{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <h1>My Profile</h1>
+    <p>Keep your details updated — they auto-fill on new assessments</p>
+</header>
+
+<div class="profile-completion card">
+    <div class="completion-header">
+        <span>Profile Completion</span>
+        <span class="completion-pct">{{ user.profile_completion }}%</span>
+    </div>
+    <div class="completion-bar">
+        <div class="completion-fill" style="width: {{ user.profile_completion }}%"></div>
+    </div>
+    {% if user.profile_completion < 100 %}
+    <p class="completion-hint">Complete your profile for faster assessments with auto-calculated age &amp; BMI.</p>
+    {% endif %}
+</div>
+
+<form method="post" class="profile-form">
+    <section class="card">
+        <h2>Personal Details</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="full_name">Full Name</label>
+                <input type="text" id="full_name" name="full_name" value="{{ user.full_name }}" placeholder="Your name">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" value="{{ user.email }}" disabled class="input-disabled">
+                <small>Email cannot be changed</small>
+            </div>
+            <div class="form-group">
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender">
+                    <option value="">Select gender</option>
+                    <option value="male" {% if user.gender == 'male' %}selected{% endif %}>Male</option>
+                    <option value="female" {% if user.gender == 'female' %}selected{% endif %}>Female</option>
+                    <option value="other" {% if user.gender == 'other' %}selected{% endif %}>Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="date_of_birth">Date of Birth</label>
+                <input type="date" id="date_of_birth" name="date_of_birth" value="{{ user.date_of_birth or '' }}" max="{{ today }}">
+                <small>Used to auto-calculate age on assessments</small>
+            </div>
+        </div>
+    </section>
+
+    <section class="card">
+        <h2>Body Measurements</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="height_cm">Height (cm)</label>
+                <input type="number" id="height_cm" name="height_cm" min="50" max="250" step="0.1"
+                       value="{{ user.height_cm or '' }}" placeholder="e.g. 170">
+                <small>Measure barefoot against a wall</small>
+            </div>
+            <div class="form-group">
+                <label for="weight_kg">Weight (kg)</label>
+                <input type="number" id="weight_kg" name="weight_kg" min="20" max="300" step="0.1"
+                       value="{{ user.weight_kg or '' }}" placeholder="e.g. 72">
+            </div>
+        </div>
+        <div class="computed-stats">
+            {% if user.age %}
+            <div class="computed-stat">
+                <span class="computed-label">Age</span>
+                <span class="computed-value">{{ user.age }} years</span>
+            </div>
+            {% endif %}
+            {% if user.bmi %}
+            <div class="computed-stat">
+                <span class="computed-label">BMI (auto-calculated)</span>
+                <span class="computed-value">{{ user.bmi }} kg/m²</span>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="card form-actions-card">
+        <button type="submit" class="btn btn-primary btn-lg">Save Profile</button>
+        <a href="{{ url_for('assess') }}" class="btn btn-secondary">Go to Assessment</a>
+    </section>
+</form>
+{% endblock %}

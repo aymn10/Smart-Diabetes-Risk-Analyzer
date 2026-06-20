@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Saved Reports — DiaSense AI{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <h1>Saved Reports</h1>
+    <p>All stored diabetes risk assessments</p>
+    <a href="{{ url_for('assess') }}" class="btn btn-primary">+ New Assessment</a>
+</header>
+
+<section class="card">
+    {% if assessments %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Patient</th>
+                <th>Age</th>
+                <th>Glucose</th>
+                <th>BMI</th>
+                <th>Risk Score</th>
+                <th>Category</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in assessments %}
+            <tr>
+                <td>#{{ a.id }}</td>
+                <td>{{ a.patient_name }}</td>
+                <td>{{ a.age }}</td>
+                <td>{{ a.glucose }} mg/dL</td>
+                <td>{{ a.bmi }}</td>
+                <td>
+                    <span class="risk-badge risk-{{ a.risk_category|lower|replace(' ', '-') }}">
+                        {{ a.risk_score }}%
+                    </span>
+                </td>
+                <td>{{ a.risk_category }}</td>
+                <td>{{ a.created_at }}</td>
+                <td>
+                    <a href="{{ url_for('view_report', assessment_id=a.id) }}" class="btn btn-sm btn-primary">View Report</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state-large">
+        <div class="empty-icon">📋</div>
+        <h2>No saved reports yet</h2>
+        <p>Complete an assessment and enable "Save report" to build your history.</p>
+        <a href="{{ url_for('assess') }}" class="btn btn-primary btn-lg">Start Assessment</a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if assessments %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endif %}
+{% endblock %}

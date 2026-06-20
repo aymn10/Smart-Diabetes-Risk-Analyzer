@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Risk Report — {{ report.patient_name }}{% endblock %}
+
+{% block content %}
+<header class="page-header report-header">
+    <div>
+        <h1>Risk Assessment Report</h1>
+        <p class="report-meta">
+            Patient: <strong>{{ report.patient_name }}</strong>
+            {% if saved and assessment_id %}
+            · Report #{{ assessment_id }}
+            {% if data.created_at %} · {{ data.created_at }}{% endif %}
+            {% endif %}
+        </p>
+    </div>
+    <div class="header-actions">
+        <button onclick="window.print()" class="btn btn-secondary">Print Report</button>
+        <a href="{{ url_for('assess') }}" class="btn btn-primary">New Assessment</a>
+    </div>
+</header>
+
+<section class="report-hero card risk-{{ report.risk_category|lower|replace(' ', '-') }}">
+    <div class="risk-score-ring">
+        <svg viewBox="0 0 120 120" class="score-ring">
+            <circle cx="60" cy="60" r="52" class="ring-bg"/>
+            <circle cx="60" cy="60" r="52" class="ring-fill"
+                style="stroke-dasharray: {{ report.risk_score * 3.27 }} 327"/>
+        </svg>
+        <div class="score-center">
+            <span class="score-number">{{ report.risk_score }}</span>
+            <span class="score-unit">%</span>
+        </div>
+    </div>
+    <div class="risk-hero-text">
+        <span class="risk-category-label">{{ report.risk_category }} Risk</span>
+        <p>{{ report.category_description }}</p>
+        <ul class="summary-list">
+            {% for line in report.summary %}
+            <li>{{ line }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+
+<section class="grid-2">
+    <div class="card">
+        <h2>Factor Risk Scores</h2>
+        <div class="chart-wrap chart-tall">
+            <canvas id="factorBarChart"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <h2>Weighted Contribution</h2>
+        <div class="chart-wrap chart-tall">
+            <canvas id="weightedChart"></canvas>
+        </div>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Detailed Factor Analysis</h2>
+    <div class="factor-grid">
+        {% for factor in report.factors %}
+        <div class="factor-card status-{{ factor.status }}">
+            <div class="factor-header">
+                <h3>{{ factor.label }}</h3>
+                <span class="status-pill status-{{ factor.status }}">
+                    {{ factor.status|replace('_', ' ')|title }}
+                </span>
+            </div>
+            <div class="factor-value">
+                {% if factor.included %}
+                {{ factor.value }} <small>{{ factor.unit }}</small>
+                {% else %}
+                <em>Not provided</em>
+                {% endif %}
+            </div>
+            <p class="factor-message">{{ factor.message }}</p>
+            <p class="factor-rec"><strong>Recommendation:</strong> {{ factor.recommendation }}</p>
+            {% if factor.included %}
+            <div class="factor-bar">
+                <div class="factor-bar-fill" style="width: {{ factor.score }}%"></div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card">
+    <h2>Recommended Action Items</h2>
+    <div class="action-list">
+        {% for item in report.action_items %}
+        <div class="action-item priority-{{ item.priority }}">
+            <span class="priority-badge">{{ item.priority|upper }}</span>
+            <div>
+                <strong>{{ item.factor }}</strong>
+                <p>{{ item.action }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<div class="disclaimer">
+    <p>{{ report.disclaimer }}</p>
+</div>
+
+{% if not saved %}
+<form method="post" action="{{ url_for('assess') }}" class="save-form">
+    {% for key, val in data.items() %}
+    <input type="hidden" name="{{ key }}" value="{{ val }}">
+    {% endfor %}
+    <input type="hidden" name="save_report" value="on">
+    <button type="submit" class="btn btn-primary">Save This Report</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const chartData = {{ report.chart_data | tojson }};
+const statusColors = {
+    normal: '#22c55e', underweight: '#94a3b8', moderate: '#eab308',
+    prediabetes: '#eab308', elevated: '#f97316', overweight: '#f97316',
+    high: '#ef4444', obese: '#ef4444', critical: '#dc2626',
+    'not_provided': '#cbd5e1'
+};
+
+const barColors = chartData.labels.map((_, i) => {
+    const scores = chartData.scores;
+    if (scores[i] >= 75) return '#ef4444';
+    if (scores[i] >= 45) return '#f97316';
+    if (scores[i] >= 20) return '#eab308';
+    return '#22c55e';
+});
+
+new Chart(document.getElementById('factorBarChart'), {
+    type: 'bar',
+    data: {
+        labels: chartData.labels,
+        datasets: [{
+            label: 'Risk Score (0–100)',
+            data: chartData.scores,
+            backgroundColor: barColors,
+            borderRadius: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        scales: { x: { min: 0, max: 100 } },
+        plugins: { legend: { display: false } }
+    }
+});
+
+new Chart(document.getElementById('weightedChart'), {
+    type: 'polarArea',
+    data: {
+        labels: chartData.labels,
+        datasets: [{
+            data: chartData.weighted,
+            backgroundColor: [
+                'rgba(59,130,246,0.7)', 'rgba(16,185,129,0.7)',
+                'rgba(245,158,11,0.7)', 'rgba(239,68,68,0.7)',
+                'rgba(139,92,246,0.7)', 'rgba(236,72,153,0.7)',
+                'rgba(20,184,166,0.7)', 'rgba(249,115,22,0.7)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — DiaSense AI{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <h1>Hello, {{ user.display_name }} 👋</h1>
+    <p>{{ trends.headline }}</p>
+    <a href="{{ url_for('assess') }}" class="btn btn-primary">+ New Assessment</a>
+</header>
+
+{% if user.profile_completion < 80 %}
+<div class="card profile-banner">
+    <span>Your profile is {{ user.profile_completion }}% complete.</span>
+    <a href="{{ url_for('profile') }}" class="btn btn-sm btn-secondary">Complete Profile</a>
+</div>
+{% endif %}
+
+<section class="stats-grid">
+    <div class="stat-card">
+        <span class="stat-label">Total Assessments</span>
+        <span class="stat-value">{{ stats.total_assessments }}</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Average Risk Score</span>
+        <span class="stat-value">{{ stats.average_risk }}%</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Profile Complete</span>
+        <span class="stat-value">{{ user.profile_completion }}%</span>
+    </div>
+</section>
+
+<section class="card conclusions-card">
+    <h2>Health Trend Conclusions</h2>
+    <div class="conclusions-grid">
+        {% for key, label in [('week', 'Last 7 Days'), ('ten_days', 'Last 10 Days'), ('overall', 'Overall')] %}
+        {% set period = trends[key] %}
+        <div class="conclusion-item direction-{{ period.direction if period.available else 'none' }}">
+            <div class="conclusion-header">
+                <h3>{{ label }}</h3>
+                {% if period.available %}
+                <span class="direction-badge {{ period.direction }}">
+                    {% if period.direction == 'improving' %}↓ Improving
+                    {% elif period.direction == 'worsening' %}↑ Worsening
+                    {% else %}→ Stable{% endif %}
+                </span>
+                {% endif %}
+            </div>
+            {% if period.available %}
+            <div class="conclusion-stats">
+                <span>Avg: <strong>{{ period.average_risk }}%</strong></span>
+                <span>Latest: <strong>{{ period.latest_risk }}%</strong></span>
+                <span>{{ period.count }} report{{ 's' if period.count != 1 else '' }}</span>
+            </div>
+            {% endif %}
+            <p class="conclusion-message">{{ period.message }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="grid-2">
+    <div class="card">
+        <h2>Risk Category Distribution</h2>
+        <div class="chart-wrap">
+            <canvas id="categoryChart"></canvas>
+        </div>
+        {% if not stats.categories %}
+        <p class="empty-state">No assessments yet. Run your first assessment to see charts.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Risk Trend (14 days)</h2>
+        <div class="chart-wrap">
+            <canvas id="trendChart"></canvas>
+        </div>
+        {% if not stats.trend %}
+        <p class="empty-state">Trend data will appear after multiple assessments.</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="card">
+    <h2>Recent Assessments</h2>
+    {% if stats.recent %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Risk Score</th>
+                <th>Category</th>
+                <th>Date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in stats.recent %}
+            <tr>
+                <td><span class="risk-badge risk-{{ item.risk_category|lower|replace(' ', '-') }}">{{ item.risk_score }}%</span></td>
+                <td>{{ item.risk_category }}</td>
+                <td>{{ item.created_at }}</td>
+                <td><a href="{{ url_for('view_report', assessment_id=item.id) }}" class="btn btn-sm">View</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-state">No saved reports yet. <a href="{{ url_for('assess') }}">Create your first assessment</a>.</p>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const categories = {{ stats.categories | tojson }};
+const trend = {{ stats.trend | tojson }};
+
+const catColors = {
+    'Low': '#22c55e',
+    'Moderate': '#eab308',
+    'High': '#f97316',
+    'Very High': '#ef4444'
+};
+
+if (Object.keys(categories).length) {
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(categories),
+            datasets: [{
+                data: Object.values(categories),
+                backgroundColor: Object.keys(categories).map(k => catColors[k] || '#94a3b8'),
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+if (trend.length) {
+    new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels: trend.map(t => t.day),
+            datasets: [{
+                label: 'Avg Risk %',
+                data: trend.map(t => t.avg_risk),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { min: 0, max: 100 } },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+</script>
+{% endblock %}
